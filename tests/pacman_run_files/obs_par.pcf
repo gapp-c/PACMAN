@@ -127,6 +127,7 @@ s30_fit_spec                 True
 remove_first_exp             True
 remove_first_orb             True
 remove_which_orb             [0]
+min_white_flux               None                                               # removes exposures with a lower white light flux (e.g. incomplete scans); None to keep all
 
 rescale_uncert               False
 rescale_uncert_smaller_1     False
