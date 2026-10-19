@@ -479,6 +479,17 @@ Which orbits do you want to remove?
 E.g., if only the first choose [0]. If the first two, use [0,1].
 
 
+min_white_flux
+''''''''''''''''''''''''''''''''''''''''''''
+| Example: ``min_white_flux  6e8``
+
+Removes exposures whose white light flux (``spec_opt`` in ``lc_white.txt``) is below min_white_flux.
+This is useful to remove exposures where the spatial scan was not completed.
+The same exposures are removed for the white and all spectroscopic light curve fits.
+This is done after the first exposures and orbits are removed, so an incomplete first exposure of an orbit
+does not cause the second exposure to be removed as well. Set to ``None`` to keep all exposures.
+
+
 rescale_uncert
 ''''''''''''''''''''''''''''''''''''''''''''
 Rescales the uncertainties for the sampler (MCMC or nested sampling), so that the reduced chi2red = 1.
