@@ -43,7 +43,7 @@ def run30(pcf_path: Path, meta=None):
         previous_stage_num = "21"
         stage_subdir = "spec_lc"
         copy_extracted_sp = True
-        copy_extracted_lc = True  # lc_white.txt is needed for min_white_flux
+        copy_extracted_lc = False
     else:
         previous_stage_num = "20"
         stage_subdir = "white_lc"

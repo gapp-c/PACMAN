@@ -479,15 +479,14 @@ Which orbits do you want to remove?
 E.g., if only the first choose [0]. If the first two, use [0,1].
 
 
-min_white_flux
+min_exposure_time_percent
 ''''''''''''''''''''''''''''''''''''''''''''
-| Example: ``min_white_flux  6e8``
+| Example: ``min_exposure_time_percent  99``
 
-Removes exposures whose white light flux (``spec_opt`` in ``lc_white.txt``) is below min_white_flux.
-This is useful to remove exposures where the spatial scan was not completed.
-The same exposures are removed for the white and all spectroscopic light curve fits.
-This is done after the first exposures and orbits are removed, so an incomplete first exposure of an orbit
-does not cause the second exposure to be removed as well. Set to ``None`` to keep all exposures.
+Removes exposures whose exposure time is shorter than this percentage of the median exposure time of all spectra.
+The exposure times are taken from the ``exp`` column of the light curve files, which s20 and s21 copy from ``filelist.txt``.
+This is useful to remove exposures that were planned shorter than the others (e.g., shortened scans at the end of an orbit), as their flux is not comparable to the other exposures.
+The same exposures are removed for the white and all spectroscopic light curve fits. Set to ``None`` to keep all exposures.
 
 
 rescale_uncert

@@ -33,16 +33,6 @@ class Data:
         iorbit_sp = meta.iorbit_sp
         iexp_orb_sp = meta.iexp_orb_sp
 
-        # The white light flux is needed to remove exposures below min_white_flux (see below).
-        # It is taken from lc_white.txt, so that the same exposures are removed in every spectroscopic light curve.
-        # It is stored as a column in d, so that it is cut together with d in the following steps.
-        if meta.min_white_flux is not None:
-            lc_white = ascii.read(meta.workdir / 'extracted_lc' / 'lc_white.txt')
-            if len(lc_white) != len(d):
-                raise ValueError(f'lc_white.txt has {len(lc_white)} exposures but {data_file} has {len(d)}. '
-                                 f'Both have to come from the same s20 run to use min_white_flux.')
-            d['white_flux'] = lc_white['spec_opt'].value
-
         #####################################
         # Removes first exposure from each orbit
         # The index where the orbit changes is saved in meta.new_orbit_idx_sp
@@ -87,16 +77,17 @@ class Data:
             print('Leaving the first orbit in every visit.')
 
         #####################################
-        # Removes exposures with a white light flux below min_white_flux (e.g., incomplete spatial scans)
-        if meta.min_white_flux is not None:
-            leave_ind_flux = d['white_flux'].value >= meta.min_white_flux
-            d = d[leave_ind_flux]
+        # Removes exposures which are shorter than min_exposure_time_percent of the median exposure time
+        if meta.min_exposure_time_percent is not None:
+            leave_ind_exp = d['exp'].value >= meta.min_exposure_time_percent / 100. * np.median(d['exp'].value)
+            d = d[leave_ind_exp]
             # Remove the exposures from meta.iorbit_sp too
-            iorbit_sp = iorbit_sp[leave_ind_flux]
-            iexp_orb_sp = iexp_orb_sp[leave_ind_flux]
-            print(f'Removed {sum(~leave_ind_flux)} exposures because their white light flux was below min_white_flux = {meta.min_white_flux}.')
+            iorbit_sp = iorbit_sp[leave_ind_exp]
+            iexp_orb_sp = iexp_orb_sp[leave_ind_exp]
+            print(f'Removed {sum(~leave_ind_exp)} exposures because their exposure time was shorter than '
+                  f'{meta.min_exposure_time_percent}% of the median exposure time ({np.median(d["exp"].value):.2f} s).')
         else:
-            print('Leaving all exposures independent of their white light flux.')
+            print('Leaving all exposures independent of their exposure time.')
 
         #####################################
         # repeat previous steps for rowshift if model_rowshift is needed
@@ -118,10 +109,10 @@ class Data:
                 print(f'Removed {sum(~leave_ind)} exposures from rowshift because they were the first orbit in the visit.')
             else:
                 print('Leaving the first orbit of rowshift in every visit.')
-            # Remove exposures below min_white_flux (leave_ind_flux is unchanged from above):
-            if meta.min_white_flux is not None:
-                rowshift = rowshift[leave_ind_flux]
-                print(f'Removed {sum(~leave_ind_flux)} exposures from rowshift because their white light flux was below min_white_flux.')
+            # Remove exposures shorter than min_exposure_time_percent (leave_ind_exp is unchanged from above):
+            if meta.min_exposure_time_percent is not None:
+                rowshift = rowshift[leave_ind_exp]
+                print(f'Removed {sum(~leave_ind_exp)} exposures from rowshift because their exposure time was too short.')
         elif ('model_rowshift' in meta.s30_myfuncs) and not meta.calculate_rowshift:
             print('Please check if you ran s20 with "calculate_rowshift True". If not, you need to rerun s20 with this parameter on True in order to use "model_rowshift".')
 

@@ -252,6 +252,7 @@ def ancil(meta, s10: Optional[bool] = False, s20: Optional[bool] = False):
     meta.iorbit_sp = filelist['iorbit'][meta.mask_sp].data
     meta.ivisit_sp = filelist['ivisit'][meta.mask_sp].data
     meta.iexp_orb_sp = filelist['iexp_orb'][meta.mask_sp].data
+    meta.exp_sp = filelist['exp'][meta.mask_sp].data
 
     # the following list stores the cumulative orbit number
     meta.iorbit_sp_cumulative = np.zeros(len(meta.iorbit_sp), dtype=int)
