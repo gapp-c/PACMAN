@@ -217,7 +217,7 @@ def run30(pcf_path: Path, meta=None):
             if not meta.run_lsq or meta.rescale_uncert:
                 data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs, noclip=True)
                 if meta.run_verbose == True: print("rms, chi2red = ", model.rms, model.chi2red)
-            val_mcmc, err_lower_mcmc, err_upper_mcmc, fit = mcmc_fit(data, model, params, f, meta, fit_par)
+            val_mcmc, err_lower_mcmc, err_upper_mcmc, fit = mcmc_fit(data, model, params, f, meta, fit_par, m.perror)
 
         if meta.run_nested:
             print('\n*STARTS NESTED SAMPLING*')

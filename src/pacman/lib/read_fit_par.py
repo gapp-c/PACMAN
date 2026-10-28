@@ -1,9 +1,6 @@
 import warnings
 import numpy as np
-
-
-def _as_bool(value):
-    return str(value).lower() == "true"
+from . import util
 
 
 def prior_bounds(prior, p1, p2, nsigma=5.0):
@@ -55,7 +52,7 @@ def validate_fit_par(
     for i in range(len(fit_par)):
         name = str(fit_par["parameter"][i])
         tied = str(fit_par["tied"][i])
-        fixed = _as_bool(fit_par["fixed"][i])
+        fixed = util._as_bool(fit_par["fixed"][i])
         prior = str(fit_par["prior"][i]).upper()
         value = float(fit_par["value"][i])
         p1 = float(fit_par["p1"][i])
@@ -138,7 +135,7 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
                 idx = i * nvisit + j
 
                 parinfo[idx]["value"] = float(fit_par["value"][ii])
-                parinfo[idx]["fixed"] = _as_bool(fit_par["fixed"][ii])
+                parinfo[idx]["fixed"] = util._as_bool(fit_par["fixed"][ii])
 
                 if j > 0:
                     parinfo[idx]["tied"] = f"p[{nvisit * i}]"
@@ -166,7 +163,7 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
                 lo, hi = prior_bounds(prior, p1, p2, nsigma=5.0)
 
                 parinfo[idx]["value"] = float(fit_par["value"][ii])
-                parinfo[idx]["fixed"] = _as_bool(fit_par["fixed"][ii])
+                parinfo[idx]["fixed"] = util._as_bool(fit_par["fixed"][ii])
 
                 if np.isfinite(lo):
                     parinfo[idx]["limited"][0] = True
@@ -198,45 +195,7 @@ def get_initial_walkers(data, theta, meta, fit_par):
     nwalkers = meta.run_nwalkers
     ndim = len(theta)
 
-    priors = []
-    ii = 0
-    nvisit = int(meta.nvisit)
-
-    for i in range(len(fit_par)):
-        if ii == len(fit_par):
-            break
-
-        fixed = _as_bool(fit_par["fixed"][ii])
-        tied = str(fit_par["tied"][ii])
-
-        if not fixed:
-            if tied == "-1":
-                priors.append(
-                    (
-                        str(fit_par["prior"][ii]).upper(),
-                        float(fit_par["p1"][ii]),
-                        float(fit_par["p2"][ii]),
-                    )
-                )
-                ii += 1
-            else:
-                for _ in range(nvisit):
-                    priors.append(
-                        (
-                            str(fit_par["prior"][ii]).upper(),
-                            float(fit_par["p1"][ii]),
-                            float(fit_par["p2"][ii]),
-                        )
-                    )
-                    ii += 1
-        else:
-            ii += 1
-
-    if len(priors) != ndim:
-        raise ValueError(
-            f"Expected {ndim} priors for MCMC initialization, "
-            f"but found {len(priors)}."
-        )
+    priors = util.get_param_priors_from_fit_par(meta, fit_par, ndim)
 
     pos = np.zeros((nwalkers, ndim), dtype=float)
 
@@ -266,6 +225,32 @@ def get_initial_walkers(data, theta, meta, fit_par):
         else:
             raise ValueError(f"Unknown prior type '{prior}'.")
 
+    return pos
+
+def gaussian_ball(data, theta, theta_err, meta):
+    """Generate initial MCMC walker positions in a Gaussian ball around the least-squares solution.
+    This helps the MCMC converge faster and avoids having to fine-tune prior bounds.
+    """
+    for i,parname in enumerate(data.free_parnames):
+        # TODO: If a parameter's lsq error is zero, perhaps draw the initial walker from the prior as in get_initial_walkers().
+        if parname == 'uncmulti_val':
+            theta[i] = 1.0
+            theta_err[i] = 0.1
+        elif theta_err[i] == 0:
+            raise ValueError(f"The least-squares fit returned an error of 0 for parameter {parname} which is not allowed for MCMC sampling.")
+    
+    pos = theta + theta_err * np.random.randn(meta.run_nwalkers, len(theta))/10.
+
+    # If an initial walker position is outside of the prior bounds, set it to that prior bound instead.
+    priors = util.get_param_priors_from_fit_par(meta, data.fit_par, len(theta))
+    for j, (prior, p1, p2) in enumerate(priors):
+        if prior == "U":
+            for i in range(meta.run_nwalkers):
+                if pos[i, j] < p1:
+                    pos[i, j] = p1
+                elif pos[i, j] > p2:
+                    pos[i, j] = p2
+    
     return pos
 
 def validate_c_against_light_curve(

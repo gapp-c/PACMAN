@@ -1396,3 +1396,49 @@ def get_lc_type_label(meta):
     if "fit_spec" in fitdir_str:
         return "Sp.-LC"
     return "LC"
+
+def get_param_priors_from_fit_par(meta, fit_par, ndim):
+    """Read the priors from the fit_par.txt file and return them."""
+    priors = []
+    ii = 0
+    nvisit = int(meta.nvisit)
+
+    for i in range(len(fit_par)):
+        if ii == len(fit_par):
+            break
+
+        fixed = _as_bool(fit_par["fixed"][ii])
+        tied = str(fit_par["tied"][ii])
+
+        if not fixed:
+            if tied == "-1":
+                priors.append(
+                    (
+                        str(fit_par["prior"][ii]).upper(),
+                        float(fit_par["p1"][ii]),
+                        float(fit_par["p2"][ii]),
+                    )
+                )
+                ii += 1
+            else:
+                for _ in range(nvisit):
+                    priors.append(
+                        (
+                            str(fit_par["prior"][ii]).upper(),
+                            float(fit_par["p1"][ii]),
+                            float(fit_par["p2"][ii]),
+                        )
+                    )
+                    ii += 1
+        else:
+            ii += 1
+
+    if len(priors) != ndim:
+        raise ValueError(
+            f"Expected {ndim} priors for MCMC initialization, "
+            f"but found {len(priors)}."
+        )
+    return priors
+
+def _as_bool(value):
+    return str(value).lower() == "true"

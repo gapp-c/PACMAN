@@ -9,7 +9,7 @@ from . import util
 from . import read_fit_par
 
 
-def mcmc_fit(data, model, params, file_name, meta, fit_par):
+def mcmc_fit(data, model, params, file_name, meta, fit_par, lsq_errors):
     """
     Calls the emcee package and does the sampling.
     """
@@ -38,7 +38,11 @@ def mcmc_fit(data, model, params, file_name, meta, fit_par):
 
     print('Run emcee...')
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = l_args, pool=pool)
-    pos = read_fit_par.get_initial_walkers(data, theta, meta, fit_par)
+    if meta.run_lsq:
+        theta_err = util.format_params_for_sampling(np.array(lsq_errors), meta, fit_par)
+        pos = read_fit_par.gaussian_ball(data, theta, theta_err, meta)
+    else:
+        pos = read_fit_par.get_initial_walkers(data, theta, meta, fit_par)
 
     sampler.run_mcmc(pos, meta.run_nsteps, progress=True)
 
