@@ -178,80 +178,49 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
 
     return parinfo, np.array(params_s)
 
-
-def get_initial_walkers(data, theta, meta, fit_par):
-    """Generate initial MCMC walker positions from fit_par priors.
-
-    For U priors:
-        draw uniformly from [p1, p2]
-
-    For N priors:
-        draw from Normal(mean=p1, sigma=p2)
-
-    For X priors:
-        raise an error for free parameters, because MCMC needs a finite
-        initialization scale.
+def get_initial_walkers(data, theta, theta_err, meta, fit_par):
+    """Generate initial MCMC walker positions in a Gaussian ball around the least-squares solution.
+    Parameters for which the least-squares fit returned an error of zero are drawn from their prior instead.
     """
-    nwalkers = meta.run_nwalkers
-    ndim = len(theta)
 
-    priors = util.get_param_priors_from_fit_par(meta, fit_par, ndim)
+    pos = theta + 0.1 * theta_err * np.random.randn(meta.run_nwalkers, len(theta))
 
-    pos = np.zeros((nwalkers, ndim), dtype=float)
-
-    rng = np.random.default_rng()
+    priors = util.get_param_priors_from_fit_par(meta, data.fit_par, len(theta))
 
     for j, (prior, p1, p2) in enumerate(priors):
         if prior == "U":
+            # Sanity check
             if p2 <= p1:
                 raise ValueError(
                     f"Uniform prior requires p2 > p1, got p1={p1}, p2={p2}."
                 )
-            pos[:, j] = rng.uniform(p1, p2, size=nwalkers)
+            # If an initial walker position is outside of the prior bounds, set it to that prior bound instead.
+            for i in range(meta.run_nwalkers):
+                if pos[i, j] < p1:
+                    pos[i, j] = p1
+                elif pos[i, j] > p2:
+                    pos[i, j] = p2
 
         elif prior == "N":
             if p2 <= 0:
                 raise ValueError(
                     f"Normal prior requires sigma p2 > 0, got p2={p2}."
                 )
-            pos[:, j] = rng.normal(p1, p2, size=nwalkers)
 
-        elif prior == "X":
-            raise ValueError(
-                "Cannot initialize MCMC walkers for a free parameter with "
-                "prior X. Use U or N."
-            )
-
-        else:
-            raise ValueError(f"Unknown prior type '{prior}'.")
-
-    return pos
-
-def gaussian_ball(data, theta, theta_err, meta):
-    """Generate initial MCMC walker positions in a Gaussian ball around the least-squares solution.
-    This helps the MCMC converge faster and avoids having to fine-tune prior bounds.
-    """
-    for i,parname in enumerate(data.free_parnames):
-        # TODO: If a parameter's lsq error is zero, perhaps draw the initial walker from the prior as in get_initial_walkers().
-        if parname == 'uncmulti_val':
-            theta[i] = 1.0
-            theta_err[i] = 0.1
-        elif theta_err[i] == 0:
-            raise ValueError(f"The least-squares fit returned an error of 0 for parameter {parname} which is not allowed for MCMC sampling.")
-    
-    pos = theta + theta_err * np.random.randn(meta.run_nwalkers, len(theta))/10.
-
-    # If an initial walker position is outside of the prior bounds, set it to that prior bound instead.
-    priors = util.get_param_priors_from_fit_par(meta, data.fit_par, len(theta))
-    for j, (prior, p1, p2) in enumerate(priors):
-        if prior == "U":
-            for i in range(meta.run_nwalkers):
-                if pos[i, j] < p1:
-                    pos[i, j] = p1
-                elif pos[i, j] > p2:
-                    pos[i, j] = p2
+        # If the least-squares fit returned an error of zero for a parameter,
+        # draw the initial walker positions for that parameter from its prior instead.
+        if theta_err[j] == 0:
+            if prior == "U":
+                pos[:, j] = np.random.uniform(p1, p2, size=meta.run_nwalkers)
+            elif prior == "N":
+                pos[:, j] = np.random.normal(p1, p2, size=meta.run_nwalkers)
+            elif prior == "X":
+                raise ValueError(f"The least-squares fit returned an error of 0 for parameter {data.free_parnames[j]} which is not allowed for MCMC sampling.")
+            else:
+                raise ValueError(f"Unknown prior type '{prior}'.")
     
     return pos
+
 
 def validate_c_against_light_curve(
     fit_par,
