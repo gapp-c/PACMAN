@@ -188,6 +188,7 @@ def get_initial_walkers(data, theta, theta_err, meta, fit_par):
     priors = util.get_param_priors_from_fit_par(meta, data.fit_par, len(theta))
 
     for j, (prior, p1, p2) in enumerate(priors):
+        parname = data.free_parnames[j]
         if prior == "U":
             # Sanity check
             if p2 <= p1:
@@ -215,7 +216,7 @@ def get_initial_walkers(data, theta, theta_err, meta, fit_par):
             elif prior == "N":
                 pos[:, j] = np.random.normal(p1, p2, size=meta.run_nwalkers)
             elif prior == "X":
-                raise ValueError(f"The least-squares fit returned an error of 0 for parameter {data.free_parnames[j]} which is not allowed for MCMC sampling.")
+                raise ValueError(f"Prior X for parameter {parname} is not allowed for MCMC sampling.")
             else:
                 raise ValueError(f"Unknown prior type '{prior}'.")
     
