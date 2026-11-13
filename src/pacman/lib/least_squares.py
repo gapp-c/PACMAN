@@ -14,12 +14,11 @@ def residuals(params, data, model, fjac=None):
     return [0, fit.resid/data.err]
 
 
-def lsq_fit(fit_par, data, meta, model, myfuncs, noclip=False):
+def lsq_fit(fit_par, data, meta, model, myfuncs, clip=False):
     """Runs the least square routine using MPFIT."""
     # NOTE: Creates the lsq directory
     util.create_res_dir(meta)
 
-    # TODO: noclip = True should be standard
     nvisit = data.nvisit
     npar = len(data.parnames)*nvisit
 
@@ -47,17 +46,13 @@ def lsq_fit(fit_par, data, meta, model, myfuncs, noclip=False):
     m = mpfit.mpfit(residuals, params_s,
                     functkw=fa, parinfo=parinfo, quiet=True)
 
-    if not noclip:
+    if clip:
         # If user wants to sigma clip but there is nothing to clip:
         if sum(np.ma.getmask(sigma_clip(model.resid, sigma=meta.run_clipsigma, maxiters=1))) == 0:
             clip_idx = []
-            if meta.save_fit_lc_plot: plots.plot_fit_lc2(data, model, meta)
         else:
             # If user wants to sigma clip and there are outliers:
             clip_idx = np.where(np.ma.getmask(sigma_clip(model.resid, sigma=meta.run_clipsigma, maxiters=1))==True)[0]
-            print('Outlier Identified: ', len(clip_idx))
-            print('Outlier idx: ', clip_idx)
-            if meta.save_fit_lc_plot: plots.plot_fit_lc(data, model, meta)
 
     if m.errmsg: print("MPFIT error message", m.errmsg)
 
@@ -80,6 +75,6 @@ def lsq_fit(fit_par, data, meta, model, myfuncs, noclip=False):
     if meta.save_time_averaging_plot:
         plots.rmsplot(model, data, meta, fitter='lsq')
 
-    if noclip:
+    if not(clip):
         return data, model, m.params, m
     return data, model, m.params, clip_idx, m

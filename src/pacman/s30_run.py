@@ -119,6 +119,7 @@ def run30(pcf_path: Path, meta=None):
     meta = util.log_run_setup(meta)
 
     # Loop through light curves
+    n_outliers = np.array([], dtype=int)
     for counter, f in enumerate(files):
         print('\n****** File: {0}/{1}'.format(counter+1, len(files)))
         meta.s30_file_counter = counter
@@ -127,59 +128,43 @@ def run30(pcf_path: Path, meta=None):
         meta.fittime = time.strftime('%Y-%m-%d_%H-%M-%S')
 
         ### RUN LEAST SQUARES ###
-        ## IF NO CLIPPING IS WISHED
         if meta.run_lsq:
-            if meta.run_clipiters == 0:
-                print('\n')
-                data = Data(f, meta, fit_par)
+            print('\n')
+            data = Data(f, meta, fit_par)
 
-                read_fit_par.validate_c_against_light_curve(
-                    fit_par,
-                    data,
-                    nsigma_lc=100.0,
-                    nsigma_prior=100.0,
-                    warn_only=False,
-                )
-
-                model = Model(data, myfuncs)
-                print('\n*STARTS LEAST SQUARED*')
-                data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs, noclip=True) #not clipping
+            read_fit_par.validate_c_against_light_curve(
+                fit_par,
+                data,
+                nsigma_lc=100.0,
+                nsigma_prior=100.0,
+                warn_only=True,
+            )
 
             ## IF THE USER WANTS CLIPPING
-            else:
-                clip_idxs = []
-                for iii in range(meta.run_clipiters+1):
-                    print('\n')
-                    print('Sigma Iters: ', iii, 'of', meta.run_clipiters)
-                    if iii == 0:
-                        data = Data(f, meta, fit_par)
-                    else:
-                        data = Data(f, meta, fit_par, clip_idx)
+            clip_idxs = []
+            for iii in range(meta.run_clipiters):
+                print('\n')
+                print('Sigma Iters: ', iii, 'of', meta.run_clipiters)
 
-                    read_fit_par.validate_c_against_light_curve(
-                        fit_par,
-                        data,
-                        nsigma_lc=100.0,
-                        nsigma_prior=100.0,
-                        warn_only=False,
-                    )
-
-                    model = Model(data, myfuncs)
-                    if iii == meta.run_clipiters:
-                        data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs, noclip=True)
-                    else:
-                        data, model, params, clip_idx, m = lsq_fit(fit_par, data, meta, model, myfuncs)
-                        print("rms, chi2red = ", model.rms, model.chi2red)
-                        print(clip_idx == [])
-                        if clip_idx == []: break
-                        clip_idxs.append(clip_idx)
-                        print(clip_idxs)
-                        print('length: ', len(clip_idxs) )
-                        if len(clip_idxs)>1:
-                            clip_idx = update_clips(clip_idxs)
-                            print(clip_idx)
-                            clip_idxs = update_clips(clip_idxs)
-                            print(clip_idxs)
+                model = Model(data, myfuncs)
+                data, model, params, clip_idx, m = lsq_fit(fit_par, data, meta, model, myfuncs, clip=True)
+                print("rms, chi2red = ", model.rms, model.chi2red)
+                if len(clip_idx) == 0: break
+                clip_idxs.append(clip_idx)
+                if len(clip_idxs)>1:
+                    clip_idx = update_clips(clip_idxs)
+                    print(clip_idx)
+                    clip_idxs = update_clips(clip_idxs)
+                    print(clip_idxs)
+                data = Data(f, meta, fit_par, clip_idx)
+            
+            if meta.run_clipiters > 0:
+                print("Number of sigma-clipped outliers: ", len(clip_idx))
+                n_outliers = np.append(n_outliers, len(clip_idx))
+            
+            model = Model(data, myfuncs)
+            print('\n*STARTS LEAST SQUARES*')
+            data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs)
 
             if meta.run_verbose:
                 print("rms, chi2red = ", model.rms, model.chi2red)
@@ -215,7 +200,7 @@ def run30(pcf_path: Path, meta=None):
                     data.err *= np.sqrt(model.chi2red)
             # if a least square hasnt been run yet or the uncertainies should be rescaled, to the lsq again
             if not meta.run_lsq or meta.rescale_uncert:
-                data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs, noclip=True)
+                data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs)
                 if meta.run_verbose == True: print("rms, chi2red = ", model.rms, model.chi2red)
             val_mcmc, err_lower_mcmc, err_upper_mcmc, fit = mcmc_fit(data, model, params, f, meta, fit_par)
 
@@ -228,7 +213,7 @@ def run30(pcf_path: Path, meta=None):
                 if model.chi2red > 1:
                     data.err *= np.sqrt(model.chi2red)
             if not meta.run_lsq or meta.rescale_uncert:
-                data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs, noclip=True)
+                data, model, params, m = lsq_fit(fit_par, data, meta, model, myfuncs)
                 if meta.run_verbose == True: print("rms, chi2red = ", model.rms, model.chi2red)
             val_nested, err_lower_nested, err_upper_nested, fit, val_maxL_nested = nested_sample(
                 data, model, params, f, meta, fit_par)
@@ -283,11 +268,37 @@ def run30(pcf_path: Path, meta=None):
                                 vals_maxL=vals_maxL_nested,
                             )
 
+        if not meta.s30_fit_white and ('rp' in meta.labels) and meta.run_nested:
+            plots.nested_rprs(vals_nested, errs_lower_nested, errs_upper_nested, meta)
+            # util.make_rprs_txt(
+            #                     vals_nested,
+            #                     errs_lower_nested,
+            #                     errs_upper_nested,
+            #                     meta,
+            #                     fitter="nested",
+            #                     vals_maxL=vals_maxL_nested,
+            #                 )
+            util.make_transmission_spectrum_txt(
+                                            vals_nested,
+                                            errs_lower_nested,
+                                            errs_upper_nested,
+                                            meta,
+                                            fitter="nested",
+                                            vals_maxL=vals_maxL_nested,
+                                        )
+
     if meta.run_mcmc or meta.run_nested:
         util.save_fit_output(fit, data, meta)
 
     log.writelog("Saving Metadata")
     me.saveevent(meta, meta.workdir / "WFC3_Meta_Save", save=[])
+
+    if meta.run_clipiters > 0:
+        log.writelog("Saving number of outliers per light curve")
+        with (meta.workdir / meta.fitdir / 'n_outliers.txt')\
+                .open("w", encoding="ascii") as outfile:
+            for i in range(len(n_outliers)):
+                print(n_outliers[i], file=outfile)
 
     log.writelog("Finished s30")
     log.closelog()
