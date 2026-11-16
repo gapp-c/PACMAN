@@ -509,16 +509,16 @@ So if one wants the same setup as mentioned in Colon+2020,
 one has to set rescale_uncert to True and rescale_uncert_smaller_1 to False.
 
 
-
 run_clipiters
 ''''''''''''''''''''''''''''''''''''''''''''
-NOT TESTED
+Number of iterations to run for sigma clipping. If set to 0, no sigma clipping will be performed.
+Only used if run_lsq is set to True. Only tested for run_clipiters = 0,1.
 
 
 run_clipsigma
 ''''''''''''''''''''''''''''''''''''''''''''
-NOT TESTED
-
+Only used when run_clipiters > 0. Sets the sigma threshold for sigma clipping.
+For further documentation, see description of 'sigma' on `astropy <https://docs.astropy.org/en/stable/api/astropy.stats.sigma_clip.html>`_.
 
 
 white_sys_path

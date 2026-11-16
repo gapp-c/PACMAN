@@ -133,7 +133,7 @@ rescale_uncert               False
 rescale_uncert_smaller_1     False
 
 run_clipiters                0
-run_clipsigma                0
+run_clipsigma                3
 
 white_sys_path               None
 
