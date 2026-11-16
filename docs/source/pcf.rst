@@ -512,7 +512,7 @@ one has to set rescale_uncert to True and rescale_uncert_smaller_1 to False.
 run_clipiters
 ''''''''''''''''''''''''''''''''''''''''''''
 Number of iterations to run for sigma clipping. If set to 0, no sigma clipping will be performed.
-Only used if run_lsq is set to True. Only tested for run_clipiters = 0,1.
+Only used if run_lsq is set to True.
 
 
 run_clipsigma

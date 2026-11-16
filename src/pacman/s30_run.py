@@ -119,7 +119,7 @@ def run30(pcf_path: Path, meta=None):
     meta = util.log_run_setup(meta)
 
     # Loop through light curves
-    n_outliers = np.array([], dtype=int)
+    n_outliers = np.zeros(len(files), dtype=int)
     for counter, f in enumerate(files):
         print('\n****** File: {0}/{1}'.format(counter+1, len(files)))
         meta.s30_file_counter = counter
@@ -141,26 +141,21 @@ def run30(pcf_path: Path, meta=None):
             )
 
             ## IF THE USER WANTS CLIPPING
-            clip_idxs = []
+            clips = []
             for iii in range(meta.run_clipiters):
                 print('\n')
-                print('Sigma Iters: ', iii, 'of', meta.run_clipiters)
+                print('Sigma Iters: ', iii + 1, 'of', meta.run_clipiters)
 
                 model = Model(data, myfuncs)
-                data, model, params, clip_idx, m = lsq_fit(fit_par, data, meta, model, myfuncs, clip=True)
+                data, model, params, new_clips, m = lsq_fit(fit_par, data, meta, model, myfuncs, clip=True)
                 print("rms, chi2red = ", model.rms, model.chi2red)
-                if len(clip_idx) == 0: break
-                clip_idxs.append(clip_idx)
-                if len(clip_idxs)>1:
-                    clip_idx = update_clips(clip_idxs)
-                    print(clip_idx)
-                    clip_idxs = update_clips(clip_idxs)
-                    print(clip_idxs)
-                data = Data(f, meta, fit_par, clip_idx)
+                if len(new_clips) == 0: break
+                clips = merge_clips(clips, new_clips)
+                data = Data(f, meta, fit_par, clips)
             
+            n_outliers[counter] = len(clips)
             if meta.run_clipiters > 0:
-                print("Number of sigma-clipped outliers: ", len(clip_idx))
-                n_outliers = np.append(n_outliers, len(clip_idx))
+                print("Number of sigma-clipped outliers: ", n_outliers[counter])
             
             model = Model(data, myfuncs)
             print('\n*STARTS LEAST SQUARES*')
@@ -296,9 +291,20 @@ def run30(pcf_path: Path, meta=None):
     return meta
 
 
-def update_clips(clips_array):
-    clips_old = clips_array[0]
-    clips_new = clips_array[1]
-    clips_new[0] + sum([i <= clips_new[0] for i in clips_old])
-    clips_new_updated = [clips_new[ii] + sum([i <= clips_new[ii] for i in clips_old]) for ii in range(len(clips_new))]
-    return np.concatenate((clips_old, clips_new_updated))
+def merge_clips(old_clips, new_clips):
+    """To perform iterative sigma clipping, the array of outliers in each iteration has to be 
+    combined with the previous arrays to construct an array of indeces of the clipped points of the
+    original light curve. This is needed for the Data class which reads the data points. """
+
+    old_clips = np.sort(old_clips)
+    new_clips = np.sort(new_clips)
+
+    new_clips_shifted = []
+    for new in new_clips:
+        # Each clip of the new array has to be incremented by one for each clip of the old array smaller or equals the new clip
+        for old in old_clips:
+            if old <= new:
+                new += 1
+        new_clips_shifted.append(new)
+
+    return np.sort(np.concatenate((old_clips, new_clips_shifted))).astype(int)
