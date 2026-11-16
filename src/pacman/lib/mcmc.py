@@ -22,6 +22,10 @@ def mcmc_fit(data, model, params, file_name, meta, fit_par, lsq_errors):
     theta = util.format_params_for_sampling(params, meta, fit_par)
     ndim, nwalkers = len(theta), meta.run_nwalkers
 
+    # Re-count the number of free parameters to make sure reduced chi2 is calculated correctly
+    data.nfree_param = len(theta)
+    data.dof = data.npoints - data.nfree_param
+
     fixed_array = np.array(fit_par['fixed'])
     tied_array = np.array(fit_par['tied'])
     free_array = util.return_free_array(nvisit, fixed_array, tied_array)

@@ -29,7 +29,7 @@ def lsq_fit(fit_par, data, meta, model, myfuncs, clip=False):
 
     # loops through parameters and visits
     # sets initial guess, step size, tie, bounds
-    parinfo, params_s = read_fit_par.read_fit_par_for_ls(parinfo, params_s, data, fit_par)
+    parinfo, params_s, data = read_fit_par.read_fit_par_for_ls(parinfo, params_s, data, fit_par)
 
     if meta.save_raw_lc_plot:
         plots.plot_raw(data, meta)

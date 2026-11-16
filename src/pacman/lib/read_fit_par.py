@@ -10,9 +10,6 @@ def prior_bounds(prior, p1, p2, nsigma=5.0):
     N: p1 is mean, p2 is sigma, bounds are mean +/- nsigma*sigma.
     X: no bounds.
     """
-    prior = str(prior).upper()
-    p1 = float(p1)
-    p2 = float(p2)
 
     if prior == "U":
         if p2 <= p1:
@@ -115,7 +112,7 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
 
     Bounds:
     - U: [p1, p2]
-    - N: [p1 - 5*p2, p1 + 5*p2]
+    - N: fixed to p1
     - X: unbounded; should normally only be used for fixed parameters
     """
     nvisit = data.nvisit
@@ -126,9 +123,9 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
 
         if tied == "-1":
             # One row, shared/tied across visits.
-            prior = fit_par["prior"][ii]
-            p1 = fit_par["p1"][ii]
-            p2 = fit_par["p2"][ii]
+            prior = str(fit_par["prior"][ii]).upper()
+            p1 = float(fit_par["p1"][ii])
+            p2 = float(fit_par["p2"][ii])
             lo, hi = prior_bounds(prior, p1, p2, nsigma=5.0)
 
             for j in range(nvisit):
@@ -136,6 +133,9 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
 
                 parinfo[idx]["value"] = float(fit_par["value"][ii])
                 parinfo[idx]["fixed"] = util._as_bool(fit_par["fixed"][ii])
+
+                if prior == "N":
+                    parinfo[idx]["fixed"] = True
 
                 if j > 0:
                     parinfo[idx]["tied"] = f"p[{nvisit * i}]"
@@ -157,13 +157,16 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
             for j in range(nvisit):
                 idx = i * nvisit + j
 
-                prior = fit_par["prior"][ii]
-                p1 = fit_par["p1"][ii]
-                p2 = fit_par["p2"][ii]
+                prior = str(fit_par["prior"][ii]).upper()
+                p1 = float(fit_par["p1"][ii])
+                p2 = float(fit_par["p2"][ii])
                 lo, hi = prior_bounds(prior, p1, p2, nsigma=5.0)
 
                 parinfo[idx]["value"] = float(fit_par["value"][ii])
                 parinfo[idx]["fixed"] = util._as_bool(fit_par["fixed"][ii])
+
+                if prior == "N":
+                    parinfo[idx]["fixed"] = True
 
                 if np.isfinite(lo):
                     parinfo[idx]["limited"][0] = True
@@ -176,7 +179,14 @@ def read_fit_par_for_ls(parinfo, params_s, data, fit_par):
                 params_s.append(float(fit_par["value"][ii]))
                 ii += 1
 
-    return parinfo, np.array(params_s)
+    # Count the number of free parameters
+    data.nfree_param = 0
+    for i in range(len(parinfo)):
+        if not(parinfo[i]["fixed"]) and not parinfo[i].get("tied"):
+            data.nfree_param += 1
+    data.dof = data.npoints - data.nfree_param
+    
+    return parinfo, np.array(params_s), data
 
 def get_initial_walkers(data, theta, theta_err, meta, fit_par):
     """Generate initial MCMC walker positions in a Gaussian ball around the least-squares solution.
