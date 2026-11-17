@@ -139,6 +139,7 @@ white_sys_path               None
 
 ld_model                     1
 use_ld_file                  False
+ld_errors                    False
 ld_file_path                 /home/zieba/Data/ld_outputfile.txt
 
 toffset                      2456365

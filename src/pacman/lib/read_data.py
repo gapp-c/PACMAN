@@ -165,24 +165,62 @@ class Data:
         # TODO: Test for linear ld law
         if meta.use_ld_file and not(meta.s30_fit_white) and meta.s30_fit_spec:
             loaded_ld = np.loadtxt(meta.ld_file_path)
+            file_dim_x, file_dim_y = np.shape(loaded_ld)
+
             if meta.ld_model == 1:
                 ld_dim = 1
             elif (meta.ld_model == 2) or (meta.ld_model == 'kipping2013'):
                 ld_dim = 2
-            if len(loaded_ld.shape) != ld_dim:
-                raise ValueError(f'Columns of ld_file do not agree with ld model chosen! ld_file has '
-                                 f'{len(loaded_ld.shape)} column(s) but you chose an ld_model with {ld_dim} parameter(s)')
-            if ld_dim == 1:
-                u1 = loaded_ld[meta.s30_file_counter]
-                fit_par['value'][np.where(fit_par['parameter']=='u1')] = u1
-                fit_par['fixed'][np.where(fit_par['parameter']=='u1')] = True
-            elif ld_dim == 2:
-                u1 = loaded_ld[meta.s30_file_counter, 0]
-                u2 = loaded_ld[meta.s30_file_counter, 1]
-                fit_par['value'][np.where(fit_par['parameter']=='u1')] = u1
-                fit_par['value'][np.where(fit_par['parameter']=='u2')] = u2
-                fit_par['fixed'][np.where(fit_par['parameter']=='u1')] = True
-                fit_par['fixed'][np.where(fit_par['parameter']=='u2')] = True
+            
+            if meta.ld_errors:
+                if file_dim_y != ld_dim*2:
+                    raise ValueError(f'Columns of ld_file do not agree with ld model chosen! ld_file has '
+                                    f'{file_dim_y} column(s) but you chose an ld_model with {ld_dim*2} parameter(s)')
+                if ld_dim == 1:
+                    u1 = loaded_ld[meta.s30_file_counter, 0]
+                    u1_err = loaded_ld[meta.s30_file_counter, 1]
+
+                    # Overwrite fit_par values
+                    u1_i = np.where(fit_par['parameter']=='u1')
+                    fit_par['value'][u1_i] = u1
+                    fit_par['fixed'][u1_i] = False
+                    fit_par['prior'][u1_i] = 'N'
+                    fit_par['p1'][u1_i] = u1
+                    fit_par['p2'][u1_i] = u1_err
+                elif ld_dim == 2:
+                    u1 = loaded_ld[meta.s30_file_counter, 0]
+                    u1_err = loaded_ld[meta.s30_file_counter, 1]
+                    u2 = loaded_ld[meta.s30_file_counter, 2]
+                    u2_err = loaded_ld[meta.s30_file_counter, 3]
+
+                    # Overwrite fit_par values
+                    u1_i = np.where(fit_par['parameter']=='u1')
+                    u2_i = np.where(fit_par['parameter']=='u2')
+                    fit_par['value'][u1_i] = u1
+                    fit_par['fixed'][u1_i] = False
+                    fit_par['prior'][u1_i] = 'N'
+                    fit_par['p1'][u1_i] = u1
+                    fit_par['p2'][u1_i] = u1_err
+                    fit_par['value'][u2_i] = u2
+                    fit_par['fixed'][u2_i] = False
+                    fit_par['prior'][u2_i] = 'N'
+                    fit_par['p1'][u2_i] = u2
+                    fit_par['p2'][u2_i] = u2_err
+            else:
+                if file_dim_y != ld_dim:
+                    raise ValueError(f'Columns of ld_file do not agree with ld model chosen! ld_file has '
+                                    f'{len(loaded_ld.shape)} column(s) but you chose an ld_model with {ld_dim} parameter(s)')
+                if ld_dim == 1:
+                    u1 = loaded_ld[meta.s30_file_counter]
+                    fit_par['value'][np.where(fit_par['parameter']=='u1')] = u1
+                    fit_par['fixed'][np.where(fit_par['parameter']=='u1')] = True
+                elif ld_dim == 2:
+                    u1 = loaded_ld[meta.s30_file_counter, 0]
+                    u2 = loaded_ld[meta.s30_file_counter, 1]
+                    fit_par['value'][np.where(fit_par['parameter']=='u1')] = u1
+                    fit_par['value'][np.where(fit_par['parameter']=='u2')] = u2
+                    fit_par['fixed'][np.where(fit_par['parameter']=='u1')] = True
+                    fit_par['fixed'][np.where(fit_par['parameter']=='u2')] = True
 
         nfree_param = 0
         free_parnames = []

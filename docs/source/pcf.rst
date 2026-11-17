@@ -549,12 +549,24 @@ use_ld_file
 ''
 | Example: ``use_ld_file  False``
 
-If True, PACMAN reads precalculated limb darkening coefficients from the file given in ``ld_file_path``
+If True, PACMAN reads precalculated limb darkening coefficients from the file given in ``ld_file_path``.
 and fixes them in the spectroscopic light curve fits.
 
 This option is only applied when ``s30_fit_spec`` is True and ``s30_fit_white`` is False.
 It has no effect on the white light curve fit; the preferred method to fix ld coefficients in the white
 light curve fit is to directly write them into the fit_par.txt file instead of reading from a ld_file.
+
+ld_errors
+''''''''''''''''''''''''''''''''''''''''''''
+''
+| Example: ``ld_errors  False``
+
+If True, PACMAN reads precalculated limb darkening coefficients with uncertainties from the file given in ``ld_file_path``.
+The file is then interpreted as holding a column with the coefficient values followed by a column with the corresponding uncertainties.
+For, e.g., a two-dimensional law, the file structure then is u1 u1_err u2 u2_err
+
+Then, PACMAN will fix the limb darkening coefficients to the values given in the least-squares fit.
+In the MCMC and nested sampling, it will fit for them with a Gaussian prior with their values as medians and errors as sigma.
 
 
 ld_file_path
