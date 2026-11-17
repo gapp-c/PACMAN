@@ -31,3 +31,6 @@ run/run_20*/
 
 # personal log files
 *.log
+
+# virtual environments
+venv
