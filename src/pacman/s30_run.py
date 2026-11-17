@@ -137,7 +137,7 @@ def run30(pcf_path: Path, meta=None):
                 data,
                 nsigma_lc=100.0,
                 nsigma_prior=100.0,
-                warn_only=False,
+                warn_only=True,
             )
 
             ## IF THE USER WANTS CLIPPING

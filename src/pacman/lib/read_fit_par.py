@@ -193,24 +193,40 @@ def get_initial_walkers(data, theta, theta_err, meta, fit_par):
     Parameters for which the least-squares fit returned an error of zero are drawn from their prior instead.
     """
 
+    # Special treatment
+    for j, parname in enumerate(data.free_parnames):
+        # The prior on uncmulti_val is fairly wide and some walkers like to find weird local maxima when the
+        # error bars are very large. So, I initiate uncmulti_val around one instead of drawing from the prior.
+        if parname == 'uncmulti_val':
+            theta[j] = 1.0
+            theta_err[j] = 0.1
+
     pos = theta + 0.1 * theta_err * np.random.randn(meta.run_nwalkers, len(theta))
 
     priors = util.get_param_priors_from_fit_par(meta, data.fit_par, len(theta))
 
     for j, (prior, p1, p2) in enumerate(priors):
         parname = data.free_parnames[j]
+
         if prior == "U":
             # Sanity check
             if p2 <= p1:
                 raise ValueError(
                     f"Uniform prior requires p2 > p1, got p1={p1}, p2={p2}."
                 )
+            
+            # If the least-squares fit returned an error larger than the definition interval,
+            # draw the initial walkers from the prior instead
+            if theta_err[j] > (p2-p1)/2.:
+                pos[:, j] = np.random.uniform(p1, p2, size=meta.run_nwalkers)
+            
             # If an initial walker position is outside of the prior bounds, set it to that prior bound instead.
-            for i in range(meta.run_nwalkers):
-                if pos[i, j] < p1:
-                    pos[i, j] = p1
-                elif pos[i, j] > p2:
-                    pos[i, j] = p2
+            else:
+                for i in range(meta.run_nwalkers):
+                    if pos[i, j] < p1:
+                        pos[i, j] = p1
+                    elif pos[i, j] > p2:
+                        pos[i, j] = p2
 
         elif prior == "N":
             if p2 <= 0:
@@ -224,7 +240,7 @@ def get_initial_walkers(data, theta, theta_err, meta, fit_par):
             if prior == "U":
                 pos[:, j] = np.random.uniform(p1, p2, size=meta.run_nwalkers)
             elif prior == "N":
-                pos[:, j] = np.random.normal(p1, p2, size=meta.run_nwalkers)
+                pos[:, j] = np.random.normal(p1, p2/10., size=meta.run_nwalkers)
             elif prior == "X":
                 raise ValueError(f"Prior X for parameter {parname} is not allowed for MCMC sampling.")
             else:

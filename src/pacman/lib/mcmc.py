@@ -20,6 +20,7 @@ def mcmc_fit(data, model, params, file_name, meta, fit_par, lsq_errors):
 
     # Setting up parameters for sampler
     theta = util.format_params_for_sampling(params, meta, fit_par)
+    theta_err = util.format_params_for_sampling(np.array(lsq_errors), meta, fit_par)
     ndim, nwalkers = len(theta), meta.run_nwalkers
 
     # Re-count the number of free parameters to make sure reduced chi2 is calculated correctly
@@ -39,11 +40,10 @@ def mcmc_fit(data, model, params, file_name, meta, fit_par, lsq_errors):
     else:
         meta.ncpu = 1
         pool = None
-
+    print("Using the following fit parameters:\n", fit_par)
     print('Run emcee...')
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = l_args, pool=pool)
-    theta_err = util.format_params_for_sampling(np.array(lsq_errors), meta, fit_par)
     pos = read_fit_par.get_initial_walkers(data, theta, theta_err, meta, fit_par)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args = l_args, pool=pool)
 
     sampler.run_mcmc(pos, meta.run_nsteps, progress=True)
 
@@ -88,12 +88,12 @@ def mcmc_fit(data, model, params, file_name, meta, fit_par, lsq_errors):
     # Saving sampling results into txt files
     with (meta.workdir / meta.fitdir / 'mcmc_res' /
         f"mcmc_res_bin{meta.s30_file_counter}_wvl{meta.wavelength:0.3f}.txt").open('w', encoding='utf-8') as f_mcmc:
-        print(f"{'parameter':<20} {'p50':>14} {'p16':>14} {'p84':>14} {'minus':>14} {'plus':>14}", file=f_mcmc)
+        print(f"{'parameter':<20} {'p50':>20} {'p16':>20} {'p84':>20} {'minus':>20} {'plus':>20}", file=f_mcmc)
         for label, p50, p16, p84, minus, plus in zip(
             labels, p50_list, p16_list, p84_list, errors_lower, errors_upper
         ):
             print(
-                f"{label:<20} {p50:14.7g} {p16:14.7g} {p84:14.7g} {minus:14.7g} {plus:14.7g}",
+                f"{label:<20} {p50:20.13g} {p16:20.13g} {p84:20.13g} {minus:20.13g} {plus:20.13g}",
                 file=f_mcmc
             )
 
@@ -170,5 +170,12 @@ def lnprob(theta, params, data, model, nvisit, fixed_array, tied_array, free_arr
     lp = lnprior(theta, data)
     if lp == -np.inf:  # if the likelihood from the priors is already -inf, dont evaluate the function
         return lp
+    
+    # Restrict inc to < 90° independent of prior (if, e.g., the user set a Gaussian prior based on literature values)
+    if 'inc' in data.free_parnames:
+        for i, parname in enumerate(data.free_parnames):
+            if parname == 'inc' and theta[i]>90.:
+                return -np.inf
+            
     fit = model.fit(data, updated_params)
     return fit.ln_like + lp
